@@ -193,6 +193,27 @@ module StripeMock
         currency: currency,
         destination: nil,
         fraud_details: {},
+        payment_method_details: {
+          card: {
+            brand: "visa",
+            checks: {
+              address_line1_check: nil,
+              address_postal_code_check: nil,
+              cvc_check: "pass"
+            },
+            country: "US",
+            exp_month: 12,
+            exp_year: 2013,
+            fingerprint: "3TQGpK9JoY1GgXPw",
+            funding: "credit",
+            installments: nil,
+            last4: "4242",
+            network: "visa",
+            three_d_secure: nil,
+            wallet: nil
+          },
+          type: "card"
+        },
         receipt_email: nil,
         receipt_number: nil,
         refunded: false,
@@ -365,7 +386,7 @@ module StripeMock
         canceled_at: nil,
         collection_method: 'charge_automatically',
         ended_at: nil,
-        start: 1308595038,
+        start_date: 1308595038,
         object: 'subscription',
         trial_start: 1308595038,
         trial_end: 1308681468,
@@ -1144,8 +1165,7 @@ module StripeMock
         id: id,
         object: 'subscription_item',
         created: 1504716183,
-        metadata: {
-      },
+        metadata: {},
         plan: {
           id: 'PER_USER_PLAN1',
           object: 'plan',
@@ -1239,19 +1259,26 @@ module StripeMock
       type = params[:type].to_sym
       data = {
         card: {
-          brand: 'visa',
+          brand: case params.dig(:card, :number)&.to_s
+          when /^4/, nil
+            'visa'
+          when /^5[1-5]/
+            'mastercard'
+          else
+            'unknown'
+          end,
           checks: {
             address_line1_check: nil,
             address_postal_code_check: nil,
             cvc_check: 'pass'
           },
           country: 'FR',
-          exp_month: 2,
-          exp_year: 2022,
+          exp_month: params.dig(:card, :exp_month) || 2,
+          exp_year: params.dig(:card, :exp_year) || 2022,
           fingerprint: 'Hr3Ly5z5IYxsokWA',
           funding: 'credit',
           generated_from: nil,
-          last4: '3155',
+          last4: params.dig(:card, :number)&.[](-4..) || '3155',
           three_d_secure_usage: { supported: true },
           wallet: nil
         },
@@ -1266,7 +1293,7 @@ module StripeMock
           branch_code: '',
           country: 'DE',
           fingerprint: 'FD81kbVPe7M05BMj',
-          last4: '3000'
+          last4: params.dig(:sepa_debit, :iban)&.[](-4..) || '3000'
         }
       }
 
@@ -1291,7 +1318,7 @@ module StripeMock
         metadata: {
           order_id: '123456789'
         }
-      }.merge(type => data[type]).merge(params)
+      }.merge(params).merge(type => data[type])
     end
 
     def self.mock_setup_intent(params = {})
